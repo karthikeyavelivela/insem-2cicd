@@ -1,0 +1,96 @@
+ name: Build and Push HMS Images
+ 
+ on:
+   push:
+     branches: [ "main" ]
+   workflow_dispatch: {}
+ 
+ permissions:
+   contents: read
+   packages: write
+ 
+ jobs:
+   build-and-push:
+     runs-on: ubuntu-latest
+     env:
+       REGISTRY: ghcr.io
+       OWNER: karthikeyavelivela
+       BACKEND_IMAGE: ghcr.io/karthikeyavelivela/hms-backend
+       FRONTEND_IMAGE: ghcr.io/karthikeyavelivela/hms-frontend
+     steps:
+       - name: Checkout
+         uses: actions/checkout@v4
+ 
+       - name: Set up Java for backend build
+         uses: actions/setup-java@v4
+         with:
+           distribution: temurin
+           java-version: '17'
+ 
+       - name: Cache Maven
+         uses: actions/cache@v4
+         with:
+           path: |
+             ~/.m2/repository
+           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+           restore-keys: |
+             ${{ runner.os }}-m2-
+ 
+       - name: Build backend (Maven)
+         working-directory: hospital-management-system/backend
+         run: mvn -B -DskipTests package
+ 
+       - name: Set up Node for frontend build
+         uses: actions/setup-node@v4
+         with:
+           node-version: '18'
+           cache: 'npm'
+           cache-dependency-path: hospital-management-system/frontend/package-lock.json
+ 
+       - name: Install deps and build frontend
+         working-directory: hospital-management-system/frontend
+         run: |
+           npm ci --silent
+           npm run build
+ 
+       - name: Log in to GHCR
+         uses: docker/login-action@v3
+         with:
+           registry: ghcr.io
+           username: ${{ github.actor }}
+           password: ${{ secrets.GITHUB_TOKEN }}
+ 
+       - name: Extract metadata (backend)
+         id: meta-backend
+         uses: docker/metadata-action@v5
+         with:
+           images: ${{ env.BACKEND_IMAGE }}
+           tags: |
+             type=raw,value=latest
+             type=sha
+ 
+       - name: Extract metadata (frontend)
+         id: meta-frontend
+         uses: docker/metadata-action@v5
+         with:
+           images: ${{ env.FRONTEND_IMAGE }}
+           tags: |
+             type=raw,value=latest
+             type=sha
+ 
+       - name: Build and push backend image
+         uses: docker/build-push-action@v6
+         with:
+           context: hospital-management-system/backend
+           push: true
+           tags: ${{ steps.meta-backend.outputs.tags }}
+           labels: ${{ steps.meta-backend.outputs.labels }}
+ 
+       - name: Build and push frontend image
+         uses: docker/build-push-action@v6
+         with:
+           context: hospital-management-system/frontend
+           push: true
+           tags: ${{ steps.meta-frontend.outputs.tags }}
+           labels: ${{ steps.meta-frontend.outputs.labels }}
+

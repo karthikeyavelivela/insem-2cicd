@@ -1,0 +1,38 @@
+ replicaCount:
+   backend: 2
+   frontend: 2
+ 
+ image:
+   backend:
+     repository: YOUR_REGISTRY/hms-backend
+     tag: "latest"
+     pullPolicy: IfNotPresent
+   frontend:
+     repository: YOUR_REGISTRY/hms-frontend
+     tag: "latest"
+     pullPolicy: IfNotPresent
+ 
+ service:
+   backend:
+     type: ClusterIP
+     port: 8080
+   frontend:
+     type: ClusterIP
+     port: 80
+ 
+ resources:
+   backend: {}
+   frontend: {}
+ 
+ ingress:
+   enabled: true
+   className: nginx
+   host: hms.local
+   tls:
+     enabled: false
+     secretName: hms-tls
+ 
+ env:
+   backend: {}
+   frontend: {}
+
